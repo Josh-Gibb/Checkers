@@ -1,0 +1,2 @@
+# Checkers
+Checkers group project
