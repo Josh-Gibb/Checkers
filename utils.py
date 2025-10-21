@@ -19,9 +19,9 @@ def get_piece_gui_coords(coords, square_dist, top_left_coords):
     piece_row = coords[0]
     piece_column = coords[1]
 
-    # Calculating x_pos takes into consideration one square between each possible to move square and a one square offset in odd rows.
     x_pos = top_left_coords[0] + (horizontal_distance * (piece_column // 2))
     x_pos = x_pos if piece_row % 2 == 0 else x_pos + vertical_distance
     y_pos = top_left_coords[1] + (vertical_distance * piece_row)
+
 
     return (x_pos, y_pos)
