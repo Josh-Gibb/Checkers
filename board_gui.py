@@ -11,7 +11,7 @@ BOARD_POSITION = (26, 26)
 TOPLEFTBORDER = (34, 34)
 SQUARE_DIST = 56
 
-
+# Board gui class
 class BoardGUI:
     def __init__(self, board):
         self.pieces = self.get_piece_properties(board)
@@ -43,11 +43,10 @@ class BoardGUI:
         return self.pieces[index]
 
     def hide_piece(self, index):
-        # Index of Board pieces and BoardGUI pieces is kept the same.
         self.hidden_piece = index
 
+    # Shows piece
     def show_piece(self):
-        # Reveals hidden piece and returns the piece index
         piece_shown = self.hidden_piece
         self.hidden_piece = -1
         return piece_shown
@@ -70,3 +69,4 @@ class BoardGUI:
 
     def get_position_by_rect(self, rect):
         return get_piece_position((rect.x, rect.y), SQUARE_DIST, TOPLEFTBORDER)
+
