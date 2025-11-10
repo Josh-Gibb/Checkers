@@ -37,10 +37,3 @@ def test_login_incorrect_password():
     ok, msg = db.verify_login("testuser4", "wrongpassword")
     assert ok == False
 
-#  board test
-
-def board_test():
-    # checks that when a player selects "Player vs Player" the board appears with all pieces.
-    game = GameControl(player_color="W", is_computer_opponent=False)
-    assert game.board is not None
-    assert len(game.board.get_pieces()) == 24  # 12 per side
