@@ -1,22 +1,22 @@
 from __future__ import annotations
 from checkers import main
 
+
 import pygame
 
 pygame.init()
 
 from ui_elements import *
-from user_manager import User_manager
+from db import Database
 
 WIDTH, HEIGHT = 720, 480
 
-MODE_LOGIN = "login"
+MODE_LOGIN = "home" # 2 mode homes??? When I changed it to mode login, the code initialized in login page instead of our main page BUG!!!!
 MODE_SIGNUP = "signup"
 MODE_HOME = "home"
+MODE_SETTINGS = "settings"
 
-user_man = User_manager()
 
-# Class for a base screen
 class ScreenBase:
     def __init__(self, screen):
         self.screen = screen
@@ -35,11 +35,11 @@ class ScreenBase:
     def update(self, dt_ms: int) -> None: ...
     def draw(self, surf) -> None: ...
 
-# Class for a base
+
 class CardMixin:
     def card_rect(self) -> pygame.Rect:
         # Center the card in the window
-        w, h = 520, 360
+        w, h = 520, 430 #360
         x = (WIDTH - w) // 2
         y = (HEIGHT - h) // 2
         return pygame.Rect(x, y, w, h)
@@ -62,9 +62,7 @@ class CardMixin:
         return rect
 
 
-# Screen for the Login Page
 class LoginPage(ScreenBase, CardMixin):
-    # Drawing all Elements on Login Page
     def __init__(self, screen):
         super().__init__(screen)
         rect = self.card_rect()
@@ -79,29 +77,44 @@ class LoginPage(ScreenBase, CardMixin):
         self.btn_goto_signup = Button(pad_x + 275, pad_y + 120, 180, height, "Sign Up")
         self.username.active = True
 
-    # A class thst handles any interaction from user
     def handle_event(self, event) -> None:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                # cleaner than quit() directly, lets the main loop handle it
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
                 return
+            if event.key == pygame.K_TAB:
+                self.cycle_focus([self.username, self.password])
             if event.key == pygame.K_RETURN:
                 self.try_login()
 
         self.username.handle_event(event)
         self.password.handle_event(event)
 
+
         if self.btn_login.handle_event(event):
             self.try_login()
         if self.btn_goto_signup.handle_event(event):
             self.screen.goto(MODE_SIGNUP)
 
-    # Action for when the user attempts to login
+    def cycle_focus(self, boxes: list[InputBox]):
+        if not boxes:
+            return
+        idx = 0
+        for i, b in enumerate(boxes):
+            if b.active:
+                idx = (i + 1) % len(boxes)
+                break
+        for b in boxes:
+            b.active = False
+        boxes[idx].active = True
+
     def try_login(self):
+        # unify on InputBox.get_value()
         uname = self.username.get_value()
         pwd = self.password.get_value()
 
-        ok, msg = user_man.verify_login(uname, pwd)
+        ok, msg = self.screen.db.verify_login(uname, pwd)
         if ok:
             self.screen.current_user = uname
             self.username.clear()
@@ -124,7 +137,7 @@ class LoginPage(ScreenBase, CardMixin):
         self.btn_goto_signup.draw(surf)
         self.btn_login.draw(surf)
 
-# Class for the Sign Up Page
+
 class SignupPage(ScreenBase, CardMixin):
     def __init__(self, screen):
         super().__init__(screen)
@@ -144,6 +157,8 @@ class SignupPage(ScreenBase, CardMixin):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.screen.goto(MODE_LOGIN); return
+            if event.key == pygame.K_TAB:
+                self.cycle_focus([self.username, self.password, self.confirm])
             if event.key == pygame.K_RETURN:
                 self.try_create()
 
@@ -156,12 +171,26 @@ class SignupPage(ScreenBase, CardMixin):
         if self.btn_back.handle_event(event):
             self.screen.goto(MODE_LOGIN)
 
+    def cycle_focus(self, boxes: list[InputBox]) -> None:
+        if not boxes:
+            return
+        idx = 0
+        for i, b in enumerate(boxes):
+            if b.active:
+                idx = (i + 1) % len(boxes)
+                break
+        for b in boxes:
+            b.active = False
+        boxes[idx].active = True
 
     def try_create(self) -> None:
         uname = self.username.get_value().strip()
         pwd1 = self.password.get_value()
         pwd2 = self.confirm.get_value()
-        ok, msg = user_man.create_user(uname, pwd1, pwd2)
+        if pwd1 != pwd2:
+            self.set_message("Passwords do not match.", Theme.DANGER)
+            return
+        ok, msg = self.screen.db.create_user(uname, pwd1)
         if ok:
             self.username.clear(); self.password.clear(); self.confirm.clear()
             self.screen.goto(MODE_LOGIN, toast=(msg, Theme.SUCCESS))
@@ -186,7 +215,6 @@ class SignupPage(ScreenBase, CardMixin):
 
 
 class HomePage(ScreenBase, CardMixin):
-    # Initialize all GUI elements for the home page
     def __init__(self, screen):
         super().__init__(screen)
         rect = self.card_rect()
@@ -194,11 +222,13 @@ class HomePage(ScreenBase, CardMixin):
         self.btn_player = Button(rect.x, rect.y, 320, 48, "Play vs Player", primary=False)
         self.btn_record = Button(rect.x, rect.y, 320, 48, "Record", primary=False)
         self.btn_logout = Button(rect.x, rect.y, 320, 48, "Log Out", primary=False)
-        self._buttons = [self.btn_ai, self.btn_player, self.btn_record, self.btn_logout]
+        self.btn_settings = Button(rect.x, rect.y, 320, 48, "Settings", primary=False)
+
+        self._buttons = [self.btn_ai, self.btn_player, self.btn_record, self.btn_logout, self.btn_settings]
 
     def _apply_vertical_layout(self) -> None:
         rect = self.card_rect()
-        column_w = 320
+        column_w =320
         column_x = rect.centerx - column_w // 2
         start_y = rect.y + 96
         gap = 14
@@ -208,14 +238,16 @@ class HomePage(ScreenBase, CardMixin):
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if self.btn_ai.handle_event(event):
-            main()
+            main("cpu")
         if self.btn_player.handle_event(event):
-            main()
+            main("")
         if self.btn_record.handle_event(event):
             self.set_message("Recording… (placeholder)", Theme.SUCCESS)
         if self.btn_logout.handle_event(event):
             self.screen.current_user = None
             self.screen.goto(MODE_LOGIN, toast=("You have been logged out.", Theme.MUTED))
+        if self.btn_settings.handle_event(event):
+            self.screen.goto(MODE_SETTINGS)
 
     def update(self, dt_ms: int) -> None:
         for b in self._buttons:
@@ -229,7 +261,7 @@ class HomePage(ScreenBase, CardMixin):
         for b in self._buttons:
             b.draw(surf)
 
-# Class for the screen
+
 class Screen:
     def __init__(self, size: tuple[int, int] = (WIDTH, HEIGHT)):
         self.title = "CHECKERS"
@@ -237,18 +269,20 @@ class Screen:
         self.current_user: str | None = None
         Theme.init_fonts()
 
+        self.db = Database()
+
         # Screens
         self._screens: dict[str, ScreenBase] = {
             MODE_LOGIN:  LoginPage(self),
             MODE_SIGNUP: SignupPage(self),
             MODE_HOME:   HomePage(self),
+            MODE_SETTINGS: SettingsPage(self),
         }
         self._mode = MODE_LOGIN
         self._toast: tuple[str, pygame.Color] | None = None
 
         self._screens[self._mode].on_enter()
 
-    # Switch screen mode between login. signup, main page
     def goto(self, mode: str, toast: tuple[str, pygame.Color] | None = None) -> None:
         self._mode = mode
         self._toast = toast
@@ -273,3 +307,56 @@ class Screen:
 
     def draw(self, surf: pygame.Surface) -> None:
         self.screen.draw(surf)
+
+class SettingsPage(ScreenBase, CardMixin): # Alex added class, this is our settings page
+    # Ranya, this is where you will need to add your themes and stuff
+    def __init__(self, screen):
+        super().__init__(screen)
+        rect = self.card_rect()
+
+        self.btn_theme = Button(rect.x, rect.y, 320, 44, "Themes", primary=False)
+        self.btn_music_select = Button(rect.x, rect.y, 320, 44, "Music Selection", primary=False)
+        self.btn_volume = Button(rect.x, rect.y, 320, 44, "Volume", primary=False)
+        self.btn_music_toggle = Button(rect.x, rect.y, 320, 44, "Turn Off Music", primary=False)
+        self.btn_back = Button(rect.x, rect.y, 320, 44, "Back", primary=True)
+
+        self._buttons = [
+            self.btn_theme,
+            self.btn_music_select,
+            self.btn_volume,
+            self.btn_music_toggle,
+            self.btn_back,
+        ]
+
+    def _apply_vertical_layout(self) -> None:
+        rect = self.card_rect()
+        column_w = 320
+        column_x = rect.centerx - column_w // 2
+        start_y = rect.y + 96
+        gap = 14
+        h = 44
+        for i, b in enumerate(self._buttons):
+            b.rect.update(column_x, start_y + i * (h + gap), column_w, h)
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        if self.btn_theme.handle_event(event):
+            self.set_message("Theme options not implemented yet.", Theme.MUTED)
+        if self.btn_music_select.handle_event(event):
+            self.set_message("Music selection not implemented yet.", Theme.MUTED)
+        if self.btn_volume.handle_event(event):
+            self.set_message("Volume control not implemented yet.", Theme.MUTED)
+        if self.btn_music_toggle.handle_event(event):
+            self.set_message("Music toggle not implemented yet.", Theme.MUTED)
+        if self.btn_back.handle_event(event):
+            self.screen.goto(MODE_HOME)
+
+    def update(self, dt_ms: int) -> None:
+        for b in self._buttons:
+            b.update(dt_ms)
+
+    def draw(self, surf: pygame.Surface) -> None:
+        surf.fill(Theme.BG)
+        self.draw_card(surf, "Settings")
+        self._apply_vertical_layout()
+        for b in self._buttons:
+            b.draw(surf)
