@@ -3,14 +3,17 @@ import pygame
 
 
 
-# Basic Theme of the project
 class Theme:
+
     FONT_SM = None
     FONT_MD = None
     FONT_LG = None
+    _fonts_ready = False
 
     @classmethod
     def init_fonts(cls) -> None:
+        if cls._fonts_ready:
+            return
         cls.FONT_SM = pygame.font.SysFont(None, 18)
         cls.FONT_MD = pygame.font.SysFont(None, 24)
         cls.FONT_LG = pygame.font.SysFont(None, 32)
@@ -43,7 +46,7 @@ def _blend(c1: pygame.Color, c2: pygame.Color, t: float) -> pygame.Color:
     )
 
 
-# Class for the input boxes
+
 class InputBox:
     def __init__(self, x: int, y: int, w: int, h: int, placeholder: str = "", is_password: bool = False):
         self.rect = pygame.Rect(x, y, w, h)
@@ -126,7 +129,7 @@ class InputBox:
         self.text = ""
         self.cursor_pos = 0
 
-# Class for buttons
+
 class Button:
     def __init__(self, x: int, y: int, w: int, h: int, text: str, primary: bool = True):
         self.rect = pygame.Rect(x, y, w, h)
