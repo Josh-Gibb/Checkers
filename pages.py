@@ -11,10 +11,11 @@ from db import Database
 
 WIDTH, HEIGHT = 720, 480
 
-MODE_LOGIN = "home" # 2 mode homes??? When I changed it to mode login, the code initialized in login page instead of our main page BUG!!!!
+MODE_LOGIN = "login"
 MODE_SIGNUP = "signup"
 MODE_HOME = "home"
 MODE_SETTINGS = "settings"
+
 
 
 class ScreenBase:
@@ -90,7 +91,6 @@ class LoginPage(ScreenBase, CardMixin):
 
         self.username.handle_event(event)
         self.password.handle_event(event)
-
 
         if self.btn_login.handle_event(event):
             self.try_login()
@@ -271,6 +271,18 @@ class Screen:
 
         self.db = Database()
 
+        # --- MUSIC SETUP ---
+        self.music_enabled = True
+
+        try:
+            pygame.mixer.init()
+            pygame.mixer.music.load("music/background 1.mp3")
+            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.play(-1)
+        except pygame.error as e:
+            print("Could not load or play music:", e)
+            self.music_enabled = False
+
         # Screens
         self._screens: dict[str, ScreenBase] = {
             MODE_LOGIN:  LoginPage(self),
@@ -308,22 +320,18 @@ class Screen:
     def draw(self, surf: pygame.Surface) -> None:
         self.screen.draw(surf)
 
-class SettingsPage(ScreenBase, CardMixin): # Alex added class, this is our settings page
-    # Ranya, this is where you will need to add your themes and stuff
+
+class SettingsPage(ScreenBase, CardMixin): # Class I added
     def __init__(self, screen):
         super().__init__(screen)
         rect = self.card_rect()
 
         self.btn_theme = Button(rect.x, rect.y, 320, 44, "Themes", primary=False)
-        self.btn_music_select = Button(rect.x, rect.y, 320, 44, "Music Selection", primary=False)
-        self.btn_volume = Button(rect.x, rect.y, 320, 44, "Volume", primary=False)
-        self.btn_music_toggle = Button(rect.x, rect.y, 320, 44, "Turn Off Music", primary=False)
+        self.btn_music_toggle = Button(rect.x, rect.y, 320, 44, "Music: On", primary=False)
         self.btn_back = Button(rect.x, rect.y, 320, 44, "Back", primary=True)
 
         self._buttons = [
             self.btn_theme,
-            self.btn_music_select,
-            self.btn_volume,
             self.btn_music_toggle,
             self.btn_back,
         ]
@@ -341,12 +349,17 @@ class SettingsPage(ScreenBase, CardMixin): # Alex added class, this is our setti
     def handle_event(self, event: pygame.event.Event) -> None:
         if self.btn_theme.handle_event(event):
             self.set_message("Theme options not implemented yet.", Theme.MUTED)
-        if self.btn_music_select.handle_event(event):
-            self.set_message("Music selection not implemented yet.", Theme.MUTED)
-        if self.btn_volume.handle_event(event):
-            self.set_message("Volume control not implemented yet.", Theme.MUTED)
         if self.btn_music_toggle.handle_event(event):
-            self.set_message("Music toggle not implemented yet.", Theme.MUTED)
+            # toggle on/off
+            self.screen.music_enabled = not self.screen.music_enabled
+
+            if self.screen.music_enabled:
+                pygame.mixer.music.play(-1)
+                self.btn_music_toggle.text = "Music: On"
+            else:
+                pygame.mixer.music.stop()
+                self.btn_music_toggle.text = "Music: Off"
+
         if self.btn_back.handle_event(event):
             self.screen.goto(MODE_HOME)
 
